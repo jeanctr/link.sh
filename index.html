@@ -1,26 +1,946 @@
 <!DOCTYPE html>
-<html lang="en">
-
+<html lang="es">
 <head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>lnk.sh — link manager</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0d0d;
+    --surface: #141414;
+    --surface2: #1a1a1a;
+    --border: #2a2a2a;
+    --border2: #333;
+    --text: #e8e8e5;
+    --muted: #666;
+    --muted2: #444;
+    --accent: #c8ff00;
+    --accent-dim: #8aaf00;
+    --red: #ff4444;
+    --blue: #4499ff;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', sans-serif;
+  }
 
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>link.sh - link manager</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link
-        href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@300;400;500&family=IBM+Plex+Sans:wght@300;400;500&display=swap"
-        rel="stylesheet">
-    <style>
-        /* -- variables -- */
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-    </style>
+  html, body {
+    height: 100%;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    line-height: 1.5;
+    overflow: hidden;
+  }
+
+  /* ── Layout ── */
+  .app { display: flex; flex-direction: column; height: 100vh; }
+
+  /* ── Topbar ── */
+  .topbar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    flex-shrink: 0;
+  }
+
+  .logo {
+    font-size: 14px;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    white-space: nowrap;
+    color: var(--text);
+  }
+  .logo em { color: var(--accent); font-style: normal; }
+
+  .search-wrap {
+    flex: 1;
+    position: relative;
+    max-width: 480px;
+  }
+  .search-wrap svg {
+    position: absolute;
+    left: 10px;
+    top: 50%;
+    transform: translateY(-50%);
+    color: var(--muted);
+    pointer-events: none;
+  }
+  .search-wrap input {
+    width: 100%;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 12px 7px 32px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .search-wrap input:focus { border-color: var(--border2); }
+  .search-wrap input::placeholder { color: var(--muted); }
+
+  .topbar-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+  .kbd {
+    font-size: 10px;
+    color: var(--muted);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    padding: 2px 6px;
+  }
+
+  .btn {
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 6px 14px;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.12s;
+    border: 1px solid var(--border2);
+    background: transparent;
+    color: var(--muted);
+  }
+  .btn:hover { color: var(--text); border-color: #555; }
+
+  .btn-primary {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #0d0d0d;
+    font-weight: 500;
+  }
+  .btn-primary:hover { background: #d4ff1a; border-color: #d4ff1a; color: #0d0d0d; }
+
+  /* ── Body ── */
+  .body { display: flex; flex: 1; overflow: hidden; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    width: 180px;
+    flex-shrink: 0;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    padding: 12px 0;
+    overflow-y: auto;
+    background: var(--bg);
+  }
+
+  .sidebar-section { padding: 0 0 8px; }
+
+  .sidebar-label {
+    font-size: 9px;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    color: var(--muted2);
+    padding: 4px 16px 6px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 16px;
+    cursor: pointer;
+    font-size: 12px;
+    color: var(--muted);
+    border-left: 2px solid transparent;
+    transition: all 0.1s;
+    user-select: none;
+  }
+  .nav-item:hover { color: var(--text); background: var(--surface); }
+  .nav-item.active {
+    color: var(--text);
+    border-left-color: var(--accent);
+    background: var(--surface);
+  }
+
+  .nav-count {
+    font-size: 10px;
+    color: var(--muted2);
+    background: var(--surface2);
+    padding: 1px 5px;
+    border-radius: 2px;
+    min-width: 20px;
+    text-align: center;
+  }
+  .nav-item.active .nav-count { color: var(--muted); }
+
+  .sidebar-divider {
+    height: 1px;
+    background: var(--border);
+    margin: 8px 16px;
+  }
+
+  /* ── Main ── */
+  .main { flex: 1; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .stat {
+    flex: 1;
+    padding: 10px 20px;
+    border-right: 1px solid var(--border);
+    text-align: center;
+  }
+  .stat:last-child { border-right: none; }
+  .stat-n {
+    font-size: 20px;
+    font-weight: 500;
+    color: var(--text);
+    line-height: 1.2;
+  }
+  .stat-n.accent { color: var(--accent); }
+  .stat-n.red { color: var(--red); }
+  .stat-l {
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-top: 2px;
+  }
+
+  /* Toolbar */
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 20px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+  .toolbar-info { font-size: 11px; color: var(--muted); flex: 1; }
+  .toolbar-info span { color: var(--text); }
+
+  .sort-group { display: flex; gap: 0; }
+  .sort-btn {
+    font-family: var(--mono);
+    font-size: 10px;
+    padding: 4px 10px;
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    transition: all 0.1s;
+    margin-left: -1px;
+  }
+  .sort-btn:first-child { border-radius: 3px 0 0 3px; }
+  .sort-btn:last-child { border-radius: 0 3px 3px 0; }
+  .sort-btn.active { background: var(--surface2); color: var(--text); border-color: var(--border2); z-index: 1; position: relative; }
+  .sort-btn:hover:not(.active) { color: var(--text); }
+
+  .view-toggle { display: flex; gap: 0; }
+  .view-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    cursor: pointer;
+    padding: 4px 8px;
+    margin-left: -1px;
+    transition: all 0.1s;
+    display: flex; align-items: center;
+  }
+  .view-btn:first-child { border-radius: 3px 0 0 3px; }
+  .view-btn:last-child { border-radius: 0 3px 3px 0; }
+  .view-btn.active { background: var(--surface2); color: var(--text); border-color: var(--border2); z-index:1; position:relative; }
+  .view-btn:hover:not(.active) { color: var(--text); }
+
+  /* Link list */
+  .link-list { flex: 1; overflow-y: auto; }
+
+  .link-row {
+    display: grid;
+    grid-template-columns: 20px 1fr auto auto;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 20px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background 0.08s;
+    position: relative;
+  }
+  .link-row:hover { background: var(--surface); }
+  .link-row:hover .row-actions { opacity: 1; }
+
+  .link-row.unread .link-title::before {
+    content: '';
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    background: var(--accent);
+    margin-right: 6px;
+    vertical-align: middle;
+    margin-bottom: 1px;
+  }
+
+  .row-check {
+    width: 14px; height: 14px;
+    border: 1px solid var(--border2);
+    border-radius: 2px;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: all 0.1s;
+    display: flex; align-items: center; justify-content: center;
+  }
+  .row-check:hover { border-color: var(--accent); }
+  .row-check.checked { background: var(--accent); border-color: var(--accent); }
+  .row-check.checked::after { content: '✓'; font-size: 9px; color: #0d0d0d; font-weight: 700; }
+
+  .link-info { overflow: hidden; min-width: 0; }
+
+  .link-title {
+    font-size: 12px;
+    font-weight: 400;
+    color: var(--text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 3px;
+    font-family: var(--sans);
+  }
+
+  .link-sub {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .link-domain {
+    font-size: 10px;
+    color: var(--muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+  }
+
+  .link-tags { display: flex; gap: 4px; flex-wrap: wrap; }
+
+  .tag-pill {
+    font-size: 9px;
+    padding: 1px 5px;
+    border-radius: 2px;
+    background: var(--surface2);
+    color: var(--muted);
+    border: 1px solid var(--border);
+    white-space: nowrap;
+    letter-spacing: 0.02em;
+  }
+
+  .link-date {
+    font-size: 10px;
+    color: var(--muted2);
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  .row-actions {
+    display: flex;
+    gap: 4px;
+    opacity: 0;
+    transition: opacity 0.1s;
+  }
+
+  .icon-btn {
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 10px;
+    padding: 3px 8px;
+    border-radius: 2px;
+    cursor: pointer;
+    font-family: var(--mono);
+    transition: all 0.1s;
+    white-space: nowrap;
+  }
+  .icon-btn:hover { color: var(--text); border-color: var(--border2); }
+  .icon-btn.del:hover { color: var(--red); border-color: var(--red); }
+
+  /* Dot status */
+  .dot {
+    display: inline-block;
+    width: 5px; height: 5px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .dot-ok { background: #639922; }
+  .dot-warn { background: #888; }
+  .dot-err { background: var(--red); }
+
+  /* ── Modal ── */
+  .modal-bg {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.7);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s;
+  }
+  .modal-bg.open { opacity: 1; pointer-events: all; }
+
+  .modal {
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    padding: 24px;
+    width: 480px;
+    max-width: 90vw;
+    transform: translateY(-8px);
+    transition: transform 0.15s;
+  }
+  .modal-bg.open .modal { transform: translateY(0); }
+
+  .modal-title {
+    font-size: 13px;
+    font-weight: 500;
+    color: var(--text);
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .modal-title em {
+    font-style: normal;
+    color: var(--accent);
+    font-size: 11px;
+    font-weight: 400;
+  }
+
+  .field { margin-bottom: 14px; }
+  .field label {
+    display: block;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin-bottom: 6px;
+  }
+  .field input, .field textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 3px;
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 8px 10px;
+    outline: none;
+    transition: border-color 0.15s;
+    resize: vertical;
+  }
+  .field input:focus, .field textarea:focus { border-color: var(--border2); }
+  .field input::placeholder, .field textarea::placeholder { color: var(--muted2); }
+
+  .field-row { display: flex; gap: 10px; }
+  .field-row .field { flex: 1; }
+
+  .modal-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 8px;
+    margin-top: 20px;
+    padding-top: 16px;
+    border-top: 1px solid var(--border);
+  }
+
+  /* ── Scrollbar ── */
+  ::-webkit-scrollbar { width: 4px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+  ::-webkit-scrollbar-thumb:hover { background: #444; }
+
+  /* ── Empty state ── */
+  .empty {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 60px 20px;
+    color: var(--muted);
+    gap: 8px;
+  }
+  .empty-icon { font-size: 24px; }
+  .empty-text { font-size: 12px; }
+
+  /* Animations */
+  .link-row { animation: fadeIn 0.15s ease; }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(2px); } to { opacity: 1; transform: translateY(0); } }
+
+  /* Selection bar */
+  .sel-bar {
+    display: none;
+    align-items: center;
+    gap: 12px;
+    padding: 8px 20px;
+    background: var(--surface2);
+    border-bottom: 1px solid var(--border);
+    font-size: 11px;
+    color: var(--muted);
+    flex-shrink: 0;
+  }
+  .sel-bar.visible { display: flex; }
+  .sel-bar span { color: var(--text); }
+  .sel-sep { flex: 1; }
+</style>
 </head>
-
 <body>
 
-    <script>
+<div class="app">
 
-    </script>
+  <!-- Topbar -->
+  <div class="topbar">
+    <div class="logo">lnk<em>.sh</em></div>
+
+    <div class="search-wrap">
+      <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+      </svg>
+      <input type="text" id="searchInput" placeholder="buscar enlaces, tags, dominios..." autocomplete="off">
+    </div>
+
+    <div class="topbar-right">
+      <span class="kbd">/</span>
+      <button class="btn" onclick="exportLinks()">export</button>
+      <button class="btn btn-primary" onclick="openModal()">+ add link</button>
+    </div>
+  </div>
+
+  <!-- Body -->
+  <div class="body">
+
+    <!-- Sidebar -->
+    <div class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">vistas</div>
+        <div class="nav-item active" onclick="filterView('all', this)">
+          todos <span class="nav-count" id="cnt-all">0</span>
+        </div>
+        <div class="nav-item" onclick="filterView('unread', this)">
+          sin leer <span class="nav-count" id="cnt-unread">0</span>
+        </div>
+        <div class="nav-item" onclick="filterView('starred', this)">
+          ★ destacados <span class="nav-count" id="cnt-starred">0</span>
+        </div>
+        <div class="nav-item" onclick="filterView('broken', this)">
+          ⚠ rotos <span class="nav-count" id="cnt-broken">0</span>
+        </div>
+      </div>
+
+      <div class="sidebar-divider"></div>
+
+      <div class="sidebar-section">
+        <div class="sidebar-label">tags</div>
+        <div id="tagNav"></div>
+      </div>
+    </div>
+
+    <!-- Main -->
+    <div class="main">
+
+      <!-- Stats -->
+      <div class="stats-bar">
+        <div class="stat">
+          <div class="stat-n" id="s-total">0</div>
+          <div class="stat-l">total</div>
+        </div>
+        <div class="stat">
+          <div class="stat-n accent" id="s-unread">0</div>
+          <div class="stat-l">sin leer</div>
+        </div>
+        <div class="stat">
+          <div class="stat-n" id="s-starred">0</div>
+          <div class="stat-l">destacados</div>
+        </div>
+        <div class="stat">
+          <div class="stat-n red" id="s-broken">0</div>
+          <div class="stat-l">rotos</div>
+        </div>
+      </div>
+
+      <!-- Selection bar -->
+      <div class="sel-bar" id="selBar">
+        <span id="selCount">0</span> seleccionados
+        <button class="btn" onclick="markSelectedRead()">marcar leídos</button>
+        <button class="btn" onclick="deleteSelected()">eliminar</button>
+        <div class="sel-sep"></div>
+        <button class="btn" onclick="clearSelection()">cancelar</button>
+      </div>
+
+      <!-- Toolbar -->
+      <div class="toolbar">
+        <div class="toolbar-info">
+          mostrando <span id="showing">0</span> enlaces
+        </div>
+        <div class="sort-group">
+          <button class="sort-btn active" onclick="setSort('date', this)">fecha</button>
+          <button class="sort-btn" onclick="setSort('title', this)">título</button>
+          <button class="sort-btn" onclick="setSort('domain', this)">dominio</button>
+        </div>
+        <div class="view-toggle">
+          <button class="view-btn active" title="lista" onclick="setView('list', this)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/>
+              <line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/>
+            </svg>
+          </button>
+          <button class="view-btn" title="compacto" onclick="setView('compact', this)">
+            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <line x1="3" y1="5" x2="21" y2="5"/><line x1="3" y1="10" x2="21" y2="10"/>
+              <line x1="3" y1="15" x2="21" y2="15"/><line x1="3" y1="20" x2="21" y2="20"/>
+            </svg>
+          </button>
+        </div>
+      </div>
+
+      <!-- Link list -->
+      <div class="link-list" id="linkList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- Modal -->
+<div class="modal-bg" id="modalBg" onclick="closeModalBg(event)">
+  <div class="modal">
+    <div class="modal-title">
+      nuevo enlace <em id="modalMode">add</em>
+    </div>
+    <div class="field">
+      <label>URL</label>
+      <input type="url" id="fUrl" placeholder="https://..." autocomplete="off">
+    </div>
+    <div class="field">
+      <label>Título</label>
+      <input type="text" id="fTitle" placeholder="nombre del enlace">
+    </div>
+    <div class="field">
+      <label>Tags</label>
+      <input type="text" id="fTags" placeholder="dev, docs, ref">
+    </div>
+    <div class="field">
+      <label>Nota</label>
+      <textarea id="fNote" rows="2" placeholder="notas opcionales..."></textarea>
+    </div>
+    <div class="modal-footer">
+      <button class="btn" onclick="closeModal()">cancelar</button>
+      <button class="btn btn-primary" onclick="saveLink()">guardar</button>
+    </div>
+  </div>
+</div>
+
+<script>
+// ── Data ──────────────────────────────────────────────
+let links = JSON.parse(localStorage.getItem('lnksh_links') || '[]');
+let editingId = null;
+let currentView = 'all';
+let currentTag = null;
+let currentSort = 'date';
+let currentViewMode = 'list';
+let selected = new Set();
+
+if (links.length === 0) {
+  links = [
+    { id: uid(), url: 'https://tokio.rs/blog/2021-07-async-dyn-trait', title: 'Rust async/await deep dive — tokio.rs', tags: ['dev','rust','docs'], note: '', date: '2025-04-01', starred: false, read: true, broken: false },
+    { id: uid(), url: 'https://tailwindcss.com/docs/v4-beta', title: 'Tailwind v4 migration guide', tags: ['design','tools'], note: '', date: '2025-03-28', starred: true, read: false, broken: false },
+    { id: uid(), url: 'https://pganalyze.com/blog/postgresql-index-types', title: 'PostgreSQL index internals — pganalyze', tags: ['dev','ref'], note: 'B-tree, GiST, GIN comparison', date: '2025-03-22', starred: false, read: false, broken: false },
+    { id: uid(), url: 'https://excalidraw.com', title: 'Excalidraw — collaborative whiteboard', tags: ['tools','design'], note: '', date: '2025-03-18', starred: true, read: true, broken: false },
+    { id: uid(), url: 'https://developer.mozilla.org/en-US/docs/Web/API/Intersection_Observer_API', title: 'MDN — Intersection Observer API', tags: ['dev','docs'], note: '', date: '2025-03-11', starred: false, read: false, broken: false },
+    { id: uid(), url: 'https://linear.app', title: 'Linear — issue tracker for software teams', tags: ['tools'], note: '', date: '2025-03-05', starred: false, read: true, broken: false },
+    { id: uid(), url: 'https://docs.deno.com/runtime', title: 'Deno runtime — official docs', tags: ['dev','docs'], note: '', date: '2025-02-28', starred: false, read: false, broken: false },
+    { id: uid(), url: 'https://bad-url-broken-link.xyz/404', title: 'Broken link example', tags: ['ref'], note: '', date: '2025-02-15', starred: false, read: true, broken: true },
+    { id: uid(), url: 'https://sqlite.org/json1.html', title: 'SQLite JSON extension', tags: ['dev','ref'], note: 'JSON_EXTRACT usage', date: '2025-02-10', starred: false, read: false, broken: false },
+    { id: uid(), url: 'https://fonts.google.com/specimen/IBM+Plex+Mono', title: 'IBM Plex Mono — Google Fonts', tags: ['design'], note: '', date: '2025-01-30', starred: true, read: true, broken: false },
+  ];
+  save();
+}
+
+function uid() { return Math.random().toString(36).slice(2, 10); }
+function save() { localStorage.setItem('lnksh_links', JSON.stringify(links)); }
+
+function getDomain(url) {
+  try { return new URL(url).hostname.replace('www.',''); } catch { return url; }
+}
+
+// ── Render ─────────────────────────────────────────────
+function render() {
+  updateStats();
+  renderTagNav();
+  renderLinks();
+  updateSelBar();
+}
+
+function updateStats() {
+  document.getElementById('s-total').textContent = links.length;
+  document.getElementById('s-unread').textContent = links.filter(l => !l.read).length;
+  document.getElementById('s-starred').textContent = links.filter(l => l.starred).length;
+  document.getElementById('s-broken').textContent = links.filter(l => l.broken).length;
+  document.getElementById('cnt-all').textContent = links.length;
+  document.getElementById('cnt-unread').textContent = links.filter(l => !l.read).length;
+  document.getElementById('cnt-starred').textContent = links.filter(l => l.starred).length;
+  document.getElementById('cnt-broken').textContent = links.filter(l => l.broken).length;
+}
+
+function renderTagNav() {
+  const tagCounts = {};
+  links.forEach(l => l.tags.forEach(t => { tagCounts[t] = (tagCounts[t]||0)+1; }));
+  const tags = Object.entries(tagCounts).sort((a,b) => b[1]-a[1]);
+  document.getElementById('tagNav').innerHTML = tags.map(([tag, count]) => `
+    <div class="nav-item${currentTag===tag?' active':''}" onclick="filterTag('${tag}', this)">
+      ${tag} <span class="nav-count">${count}</span>
+    </div>
+  `).join('');
+}
+
+function getFiltered() {
+  const q = document.getElementById('searchInput').value.toLowerCase();
+  let list = links.filter(l => {
+    if (currentView === 'unread') return !l.read;
+    if (currentView === 'starred') return l.starred;
+    if (currentView === 'broken') return l.broken;
+    return true;
+  });
+  if (currentTag) list = list.filter(l => l.tags.includes(currentTag));
+  if (q) list = list.filter(l =>
+    l.title.toLowerCase().includes(q) ||
+    l.url.toLowerCase().includes(q) ||
+    l.tags.some(t => t.toLowerCase().includes(q)) ||
+    (l.note && l.note.toLowerCase().includes(q))
+  );
+  list = [...list].sort((a,b) => {
+    if (currentSort === 'date') return b.date.localeCompare(a.date);
+    if (currentSort === 'title') return a.title.localeCompare(b.title);
+    if (currentSort === 'domain') return getDomain(a.url).localeCompare(getDomain(b.url));
+    return 0;
+  });
+  return list;
+}
+
+function renderLinks() {
+  const list = getFiltered();
+  document.getElementById('showing').textContent = list.length;
+  const el = document.getElementById('linkList');
+  if (list.length === 0) {
+    el.innerHTML = `<div class="empty">
+      <div class="empty-icon">∅</div>
+      <div class="empty-text">no hay enlaces</div>
+    </div>`;
+    return;
+  }
+  const compact = currentViewMode === 'compact';
+  el.innerHTML = list.map(l => {
+    const domain = getDomain(l.url);
+    const isUnread = !l.read;
+    const dotClass = l.broken ? 'dot-err' : (l.read ? 'dot-warn' : 'dot-ok');
+    const tags = l.tags.map(t => `<span class="tag-pill">${t}</span>`).join('');
+    const chk = selected.has(l.id);
+    return `
+    <div class="link-row${isUnread?' unread':''}" data-id="${l.id}" style="${compact?'padding-top:6px;padding-bottom:6px':''}">
+      <div class="row-check${chk?' checked':''}" onclick="toggleSelect(event,'${l.id}')"></div>
+      <div class="link-info" onclick="openLink('${l.url}','${l.id}')">
+        <div class="link-title">
+          <span class="dot ${dotClass}" style="margin-right:6px;vertical-align:middle;margin-bottom:1px;display:inline-block"></span>${escHtml(l.title)}
+          ${l.starred ? '<span style="color:#c8ff00;margin-left:6px;font-size:10px">★</span>' : ''}
+        </div>
+        ${!compact ? `<div class="link-sub">
+          <span class="link-domain">${domain}</span>
+          <div class="link-tags">${tags}</div>
+          ${l.note ? `<span style="font-size:10px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:120px">${escHtml(l.note)}</span>` : ''}
+        </div>` : ''}
+      </div>
+      <div class="link-date">${l.date}</div>
+      <div class="row-actions">
+        <button class="icon-btn" onclick="toggleStar(event,'${l.id}')">${l.starred?'☆':'★'}</button>
+        <button class="icon-btn" onclick="toggleRead(event,'${l.id}')">${l.read?'↩':'✓'}</button>
+        <button class="icon-btn" onclick="editLink(event,'${l.id}')">edit</button>
+        <button class="icon-btn del" onclick="deleteLink(event,'${l.id}')">del</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+// ── Actions ─────────────────────────────────────────────
+function openLink(url, id) {
+  const l = links.find(x => x.id === id);
+  if (l) { l.read = true; save(); render(); }
+  window.open(url, '_blank', 'noopener');
+}
+
+function toggleStar(e, id) {
+  e.stopPropagation();
+  const l = links.find(x => x.id === id);
+  if (l) { l.starred = !l.starred; save(); render(); }
+}
+
+function toggleRead(e, id) {
+  e.stopPropagation();
+  const l = links.find(x => x.id === id);
+  if (l) { l.read = !l.read; save(); render(); }
+}
+
+function deleteLink(e, id) {
+  e.stopPropagation();
+  links = links.filter(x => x.id !== id);
+  selected.delete(id);
+  save(); render();
+}
+
+function editLink(e, id) {
+  e.stopPropagation();
+  const l = links.find(x => x.id === id);
+  if (!l) return;
+  editingId = id;
+  document.getElementById('fUrl').value = l.url;
+  document.getElementById('fTitle').value = l.title;
+  document.getElementById('fTags').value = l.tags.join(', ');
+  document.getElementById('fNote').value = l.note || '';
+  document.getElementById('modalMode').textContent = 'edit';
+  document.getElementById('modalBg').classList.add('open');
+}
+
+function toggleSelect(e, id) {
+  e.stopPropagation();
+  if (selected.has(id)) selected.delete(id);
+  else selected.add(id);
+  updateSelBar();
+  renderLinks();
+}
+
+function updateSelBar() {
+  const bar = document.getElementById('selBar');
+  if (selected.size > 0) {
+    bar.classList.add('visible');
+    document.getElementById('selCount').textContent = selected.size;
+  } else {
+    bar.classList.remove('visible');
+  }
+}
+
+function clearSelection() { selected.clear(); render(); }
+
+function markSelectedRead() {
+  links.forEach(l => { if (selected.has(l.id)) l.read = true; });
+  selected.clear(); save(); render();
+}
+
+function deleteSelected() {
+  links = links.filter(l => !selected.has(l.id));
+  selected.clear(); save(); render();
+}
+
+// ── Filters ─────────────────────────────────────────────
+function filterView(view, el) {
+  currentView = view;
+  currentTag = null;
+  document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+  render();
+}
+
+function filterTag(tag, el) {
+  if (currentTag === tag) {
+    currentTag = null;
+    currentView = 'all';
+    document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+    document.querySelectorAll('.nav-item')[0].classList.add('active');
+  } else {
+    currentTag = tag;
+    currentView = 'all';
+    document.querySelectorAll('.nav-item').forEach(x => x.classList.remove('active'));
+    el.classList.add('active');
+  }
+  render();
+}
+
+function setSort(s, el) {
+  currentSort = s;
+  document.querySelectorAll('.sort-btn').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+  renderLinks();
+}
+
+function setView(v, el) {
+  currentViewMode = v;
+  document.querySelectorAll('.view-btn').forEach(x => x.classList.remove('active'));
+  el.classList.add('active');
+  renderLinks();
+}
+
+// ── Modal ─────────────────────────────────────────────
+function openModal() {
+  editingId = null;
+  document.getElementById('fUrl').value = '';
+  document.getElementById('fTitle').value = '';
+  document.getElementById('fTags').value = '';
+  document.getElementById('fNote').value = '';
+  document.getElementById('modalMode').textContent = 'add';
+  document.getElementById('modalBg').classList.add('open');
+  setTimeout(() => document.getElementById('fUrl').focus(), 100);
+}
+
+function closeModal() { document.getElementById('modalBg').classList.remove('open'); }
+
+function closeModalBg(e) { if (e.target === document.getElementById('modalBg')) closeModal(); }
+
+function saveLink() {
+  const url = document.getElementById('fUrl').value.trim();
+  if (!url) { document.getElementById('fUrl').style.borderColor='var(--red)'; return; }
+  document.getElementById('fUrl').style.borderColor='';
+  const title = document.getElementById('fTitle').value.trim() || getDomain(url);
+  const tags = document.getElementById('fTags').value.split(',').map(t => t.trim()).filter(Boolean);
+  const note = document.getElementById('fNote').value.trim();
+  const today = new Date().toISOString().slice(0,10);
+
+  if (editingId) {
+    const l = links.find(x => x.id === editingId);
+    if (l) { l.url = url; l.title = title; l.tags = tags; l.note = note; }
+  } else {
+    links.unshift({ id: uid(), url, title, tags, note, date: today, starred: false, read: false, broken: false });
+  }
+  save(); closeModal(); render();
+}
+
+// ── Export ─────────────────────────────────────────────
+function exportLinks() {
+  const data = JSON.stringify(links, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'lnksh-export.json';
+  a.click();
+}
+
+// ── Keyboard shortcuts ─────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.key === '/' && document.activeElement.tagName !== 'INPUT' && document.activeElement.tagName !== 'TEXTAREA') {
+    e.preventDefault();
+    document.getElementById('searchInput').focus();
+  }
+  if (e.key === 'Escape') closeModal();
+  if ((e.metaKey || e.ctrlKey) && e.key === 'n') {
+    e.preventDefault(); openModal();
+  }
+});
+
+document.getElementById('searchInput').addEventListener('input', renderLinks);
+
+// ── Init ─────────────────────────────────────────────
+render();
+</script>
 </body>
-
 </html>
